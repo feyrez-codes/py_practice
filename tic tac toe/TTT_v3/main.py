@@ -1,5 +1,5 @@
 from utils import (
-                    greeting, thinking, coin_flip, cpu_matrix,
+                    greeting, thinking, coin_flip,
                     Make_board, Scorekeeper
                   )
 from random import randint
@@ -27,8 +27,10 @@ Familiarize yourself with our game board while I prepare the coin flip:""")
       first_move = input("""Please select a number between 1-9: """)
     player = Scorekeeper(first_move)
   else:
-    first_move = cpu_matrix([], [])
+    first_move = randint(1,10)
     cpu = Scorekeeper(first_move)
+
+
 
 
 if __name__ in "__main__":

@@ -1,18 +1,17 @@
 from random import randint
 from time import sleep
-import itertools
 
 class Scorekeeper:
   """
-  This class manages the storage of game variables and turn governance.
-
+  :Purpose: This class manages the storage of game variables and turn governance.
+  :Params: move_1: instance creation requires the first move of the new instance (each instance represents a player: one human, one cpu for this module)
   """
   winning_combos = [[1,2,3],[4,5,6],[7,8,9],[1,4,7],[2,5,8],[3,6,9],[1,5,9],[3,5,7]]
   players = []
 
   def __init__(self, move_1):
     self.moveset = [move_1]
-    Scorekeeper.players.append(self)
+    Scorekeeper.players.append(str(self))
       
   def move(self):
     if self == "player":
@@ -20,28 +19,19 @@ class Scorekeeper:
       self.moveset.append(player_move)
 
     elif self == "cpu":
+
       self.moveset.append()
+
+    self.turn_service()
   
   def turn_service(self):
-    if Scorekeeper.snowflake_compare(self.moveset):
-      return f"{self} wins!"
+    possible_wins = [array for array in self.moveset if len(array) == 3]
+
+    for combo in possible_wins:
+      if combo.sort() in Scorekeeper.winning_combos:
+        return f"{self} wins!"
     else:
       return Scorekeeper.players[Scorekeeper.players.index(self)-1]
-
-  @staticmethod
-  def snowflake_compare(array: list) -> list:
-    """
-    Breaks down an array into every combination of the contents, then compares the remapped data to the winning combos.
-
-    returns: 1 for win, 0 for no win
-    """
-    transformed = (list(combo) for combo in list(itertools.combinations(array, 3)))
-    
-    for arr in transformed:
-        for combo in Scorekeeper.winning_combos:
-          if arr == combo:
-              return 1
-    return 0
 
 
 class Make_board:
@@ -85,7 +75,6 @@ Traditionally, our game tokens are 'X' and 'O'. If you'd like a custom game toke
     player_token = default_tokens[0]
 
   return name, player_token, cpu_token
-
 
 def thinking(x, personality=None):
   """
@@ -134,40 +123,74 @@ def coin_flip(name="player"):
   return f"{coin}! Better luck next time; looks like I shall be going first!", 0
 
 
-def array_evaluator(*subset: list) -> dict:
+def array_evaluator(superset: list, *subset: list, readable: bool=False) -> list:
   """
-  :Purpose: break down lists into each possible combination of each submitted list.
+  :Purpose: Evaluate (a) given list(s) as part of a superset. Initially created to generate intelligent predictions for a tic-tac-toe bot.
 
+  :Param: superset: list to be compared for subset combination matches
   :Param: *subset: list(s) to be compared as subsets to superset arg. 
-    ex: [1,2,3] returns [[1,2], [1,3], [2,3]]
+    \nex: [1,2,3] returns [[1,2], [1,3], [2,3]]
+  :Param: readable: If false, output remains as detailed below. if True, the function will return a dictionary with two key values: "array_{x}_combos", "array_{x}_matches" where x = arg index +1.
 
-  :Output: returns a dict of each possible combination, broken down by positional array.
+  :Output: every subset returns an list of two lists, matching the argument index
+    \nList 1: Every possible combinations of the subset, up to 3 digit combos
+    \nList 2: All partial or full match between list 1 and superset. Note:
+        \nIf no matches are found, the second list will be empty
+        \nex: a superset of [1,2,3] and a subset of [1,2,3] would return [1,2] as a partial combination. 
   """
-  expanded_array = {}
+  def mini_evaluator(target, test):
+    """
+    Purpose: convert both arguments to set then check if test is subset of target
+
+    :Params: test: value to be searched for in target
+    :Params: target: superset to be scrutinized for presence of test
+
+    :Output: returns test if test is subset of target
+    """
+    x = set(target)
+    y = set(test)
+    if (x == y or y.issubset(x)): return list(y)
+
+  expanded_array = []
+  if readable: final_array = {}
+  else: final_array = []
+
   for array in subset:
-    arr_name = f"array_{subset.index(array)+1}"
-    expanded_array[arr_name] = []
+    if readable:
+        combo_dkey = f"array_{subset.index(array)+1}_combos"
+        match_dkey = f"array_{subset.index(array)+1}_matches"
 
+    #create all combinations
     for seed in array:
-      x = [seed]
-
       for stem in array:
-        if stem == seed:
-          pass
-        else:
-          x.append(stem)
-          x.sort()
-          if x not in expanded_array[arr_name]: 
-            expanded_array[arr_name].append(x)
-            x = [seed]
+        if seed != stem:
 
-  return expanded_array
+          #create groups of two:
+          x = sorted([seed, stem])
+          if x not in expanded_array:
+            expanded_array.append(x)
 
-def cpu_matrix(my_moves, opp_moves):
-  viable_moves = [num for num in range(1,10) if num not in my_moves + opp_moves]
+          #create groups of three:
+          for leaf in array:
+            y = sorted([seed, stem, leaf])
 
-  array_evaluator(Scorekeeper.winning_combos, my_moves, opp_moves)
+            if (seed != leaf != stem and y not in expanded_array):
+              expanded_array.append(y)
+    
+    #compare combinations to superset:    
+    matches = []
+    for array in expanded_array:
+      if not isinstance(superset[0], list):
+        matches.append(mini_evaluator(superset , array))
+      else:
+        for combo in superset:
+          matches.append(mini_evaluator(combo, array))
 
+    if readable:
+      final_array[combo_dkey] = matches
+      final_array[match_dkey] = expanded_array
+    else:
+      final_array.append(expanded_array)
+      final_array.append(list(filter(None, matches)))
 
-  #should I attack or defend?
-  DANGER = snowflake()
+  return final_array
