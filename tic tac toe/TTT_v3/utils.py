@@ -1,4 +1,4 @@
-from random import randint
+from random import randint, choice
 from time import sleep
 
 class Scorekeeper:
@@ -8,57 +8,65 @@ class Scorekeeper:
   """
   winning_combos = [[1,2,3],[4,5,6],[7,8,9],[1,4,7],[2,5,8],[3,6,9],[1,5,9],[3,5,7]]
   players = []
+  chosen_tiles = []
 
-  def __init__(self, move_1):
+  def __init__(self, move_1, player_token):
     self.moveset = [move_1]
+    self.name = self
+    self.token = player_token
     Scorekeeper.players.append(str(self))
+    Board.board_array[f"slot_{move_1}"] = self.token
+
+    if len(self.moveset) > 0: 
+      for move in self.moveset:
+        if move not in Scorekeeper.chosen_tiles: Scorekeeper.chosen_tiles.extend(move) 
+
       
-  def move(self):
-    if self == "player":
-      player_move = input("Your move: ")
-      self.moveset.append(player_move)
-
-    elif self == "cpu":
-
-      self.moveset.append()
-
-    self.turn_service()
-  
-  def turn_service(self):
-    possible_wins = [array for array in self.moveset if len(array) == 3]
-
-    for combo in possible_wins:
-      if combo.sort() in Scorekeeper.winning_combos:
-        return f"{self} wins!"
-    else:
-      return Scorekeeper.players[Scorekeeper.players.index(self)-1]
+  @staticmethod
+  def turn_service(cpu, player):
+    """
+    :Purpose: evaluate the given instances against array_evaluator. For both players and the cpu bot, this method determines when the game has been won. 
+    \nFor cpu, this method calls on function cpu_matrix to return a viable next move if the game is to continue.
+    
+    :Params: instances: a list of the two class instances used in this tic-tac-toe game
+    """
+    cpu_combos, cpu_nearwin, player_combos, player_nearwin = array_evaluator(Scorekeeper.winning_combos
+                    , cpu.moveset
+                    , player.moveset)
+    
 
 
-class Make_board:
+    
+class Board:
   board_array = {}
-  board = """"""""
 
   @staticmethod
   def setup():
+    """
+    :Purpose: Create first time array to track token positions. Intended only to be called once or to reset game board.
+    """
     for x in range(1,10):
       slot = f"slot_{x}"
-      Make_board.board_array[slot] = str(x)
-    return Make_board.show()
-      
+      Board.board_array[slot] = str(x)
+
   @staticmethod
-  def show():
+  def display():
+    """
+    :Purpose: Map board_array dictionary into a gameboard visualization.
+    """
+    board = """"""""
     for x in range(1,10):
       if x in (1,2,4,5):
-        Make_board.board += ('_' + "\x1B[4m" + Make_board.board_array[f"slot_{x}"] + "\x1B[0m" + '_' + '|')
+        board += ('_' + "\x1B[4m" + Board.board_array[f"slot_{x}"] + "\x1B[0m" + '_' + '|')
       elif x in [3,6]:
-         Make_board.board += ('_' + "\x1B[4m" + Make_board.board_array[f"slot_{x}"] + "\x1B[0m" + '_' +'\n')
+         board += ('_' + "\x1B[4m" + Board.board_array[f"slot_{x}"] + "\x1B[0m" + '_' +'\n')
       elif x in [7,8]:
-         Make_board.board += ' ' + Make_board.board_array[f"slot_{x}"] +  ' ' + '|'
+         board += ' ' + Board.board_array[f"slot_{x}"] +  ' ' + '|'
     else:
-       Make_board.board += ' ' + Make_board.board_array[f"slot_{x}"]
-       Make_board.board +="""
+       board += ' ' + Board.board_array[f"slot_{x}"]
+       board +="""
 """
-    return Make_board.board, Make_board.board_array
+    print(board)
 
 def greeting():
   name = input("""Greetings, Challenger! What shall I call you?
@@ -97,11 +105,11 @@ def thinking(x, personality=None):
 def coin_flip(name="player"):
   coin = ["heads", "tails"].pop(randint(0,1))
   
-  player_selection = input(f"""Alright, f{name}, call it. Heads or tails? 
+  player_selection = input(f"""Alright, {name}, call it. Heads or tails? 
 (You may also give me unique characters like "H" for heads or "t" for tails.)
 :""")
   
-  while player_selection.lower() not in "heads" and player_selection not in "tails":
+  while player_selection.lower() not in "heads" and player_selection.lower() not in "tails":
     print("Sorry, that selection is not valid")
     player_selection = input("""Please pick heads or tails, or you can type 'exit' to quit.
 :""")
@@ -125,22 +133,22 @@ def coin_flip(name="player"):
 
 def array_evaluator(superset: list, *subset: list, readable: bool=False) -> list:
   """
-  :Purpose: Evaluate (a) given list(s) as part of a superset. Initially created to generate intelligent predictions for a tic-tac-toe bot.
+  :Purpose: Evaluate given list(s) as part of a superset. Initially created to generate intelligent predictions for a tic-tac-toe bot.
 
   :Param: superset: list to be compared for subset combination matches
   :Param: *subset: list(s) to be compared as subsets to superset arg. 
     \nex: [1,2,3] returns [[1,2], [1,3], [2,3]]
-  :Param: readable: If false, output remains as detailed below. if True, the function will return a dictionary with two key values: "array_{x}_combos", "array_{x}_matches" where x = arg index +1.
+  :Param: readable: See below for output if False. if True, the function will output a dictionary with two key values: "array_{x}_combos", "array_{x}_matches" where x = arg index +1.
 
   :Output: every subset returns an list of two lists, matching the argument index
     \nList 1: Every possible combinations of the subset, up to 3 digit combos
     \nList 2: All partial or full match between list 1 and superset. Note:
         \nIf no matches are found, the second list will be empty
-        \nex: a superset of [1,2,3] and a subset of [1,2,3] would return [1,2] as a partial combination. 
+        \nex: a superset of [1,2,3] and a subset of [1,2,3] would return [1,2], [1,3] and [2,3] as partial matches and [1,2,3] as a whole match. 
   """
   def mini_evaluator(target, test):
     """
-    Purpose: convert both arguments to set then check if test is subset of target
+    Purpose: convert both arguments to sets then check if test arg is subset of target arg
 
     :Params: test: value to be searched for in target
     :Params: target: superset to be scrutinized for presence of test
@@ -194,3 +202,31 @@ def array_evaluator(superset: list, *subset: list, readable: bool=False) -> list
       final_array.append(list(filter(None, matches)))
 
   return final_array
+
+def cpu_matrix(opponent_win_paths, my_win_paths, unchoosable):
+  """
+  :Purpose: Ingest two lists, each containing possible winning combinations for players in a tic-tac-toe game, and return my best move choice given context
+
+  :Param: opponent_win_paths: a list of 3 digit lists, each representing possible combinations my opponent could follow to defeat me
+  :Param: my_win_paths: a list of lists, each containing possible combinations that I can take to win the game
+  :Param: unchoosable: any moves that cannot be picked (in tic-tac-toe, any tile that has already been claimed)
+  \nExample: param 1 = [3, 6, 9] (my opponent has played 6, 9). param 2 = [1, 2, 3], [1, 5, 9], [1,4,7] (I have played 1). Output would be 3 as it both furthers my game plan and thwarts my opponent.
+  \nExample: param 1 = [3, 6, 9] (my oppponent has played 6, 9). param 2 = [7, 8, 9], [2, 5, 8] (I have played 8). Output would be 3 as preference is given to thwarting my opponent
+
+  :Output: The best move, of course
+  """
+
+  next_move = []
+
+  #choose overlaps
+  for combo in opponent_win_paths:
+    for ideal in my_win_paths:
+      if combo == ideal:
+        next_move.extend(combo)
+
+  #if no overlap
+  if not next_move:
+    for combo in opponent_win_paths:
+      next_move.extend(combo)
+
+  return choice([num for num in next_move if num not in unchoosable])
